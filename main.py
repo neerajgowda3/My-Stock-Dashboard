@@ -6,7 +6,7 @@ import time
 
 # --- CONFIGURATION ---
 INPUT_FILE = "widgets.txt"
-OUTPUT_HTML = "Final_MarketCap_Dashboard.html"
+OUTPUT_HTML = "index.html"
 
 def extract_symbol(html_line):
     """Extracts 'RELIANCE' from the Trendlyne link."""
@@ -165,4 +165,5 @@ def main():
     input("Press Enter to exit...")
 
 if __name__ == "__main__":
+
     main()
