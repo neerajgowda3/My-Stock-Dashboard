@@ -31,7 +31,13 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git pull --rebase  # <--- THIS IS THE MAGIC FIX (Gets latest changes first)
+          
+          # 1. Save the new files locally FIRST (Fixes 'unstaged changes' error)
           git add .
           git commit -m "Auto-update Dashboard" || echo "No changes to commit"
+          
+          # 2. Sync with cloud (Fixes 'rejected' error)
+          git pull --rebase
+          
+          # 3. Push to internet
           git push
