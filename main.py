@@ -6,46 +6,33 @@ import time
 
 # --- CONFIGURATION ---
 INPUT_FILE = "widgets.txt"
+# IMPORTANT: Saving as index.html makes the main link work automatically
 OUTPUT_HTML = "index.html"
 
 def extract_symbol(html_line):
-    """Extracts 'RELIANCE' from the Trendlyne link."""
     match = re.search(r'Poppins/([^/]+)/', html_line)
     if match:
-        sym = urllib.parse.unquote(match.group(1))
-        return sym
+        return urllib.parse.unquote(match.group(1))
     return None
 
 def get_market_cap(symbol):
-    """Fetches live Market Cap from Yahoo Finance."""
     try:
-        # FIX 1: Do not remove '&'. Pass symbol directly with .NS suffix
-        # Example: "M&M" becomes "M&M.NS" (Correct for Yahoo)
         y_sym = f"{symbol}.NS"
-        
         ticker = yf.Ticker(y_sym)
-        
-        # FIX 2: Explicitly check if data exists to prevent NoneType error
+        # CRASH PROOF: Handle missing data safely
         cap = ticker.fast_info['market_cap']
-        
-        if cap is None:
-            return 0.0
-            
-        return float(cap)
-        
-    except Exception as e:
-        # If any network error occurs, return 0.0 safely
+        return float(cap) if cap is not None else 0.0
+    except:
         return 0.0
 
 def main():
     print("------------------------------------------------")
-    print("   MARKET CAP SORTER v2 (Crash Proof)           ")
+    print("   CLOUD DASHBOARD (SIDE-BY-SIDE LAYOUT)        ")
     print("------------------------------------------------")
 
-    # 1. READ WIDGETS
     if not os.path.exists(INPUT_FILE):
         print(f"ERROR: '{INPUT_FILE}' not found.")
-        input("Press Enter to exit..."); return
+        return
 
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -59,111 +46,82 @@ def main():
             if sym:
                 stocks.append({'symbol': sym, 'code': line.strip(), 'mcap': 0.0})
 
-    print(f">> Found {len(stocks)} stocks. Fetching Market Caps...")
-    print("   (This safely takes 2-4 minutes to avoid blocks)")
+    print(f">> Found {len(stocks)} stocks. Fetching data...")
 
-    # 2. FETCH MARKET CAPS
+    # Fetch data (Crash Proof Logic)
     for i, item in enumerate(stocks):
-        # Visual progress bar
-        print(f"[{i+1}/{len(stocks)}] Fetching {item['symbol']}...", end='\r')
+        # Print progress so logs show activity
+        if i % 10 == 0: print(f"Processing {i}/{len(stocks)}...", end='\r')
         
         item['mcap'] = get_market_cap(item['symbol'])
-        
-        # FIX 3: Sleep to prevent "Operation timed out" errors
-        time.sleep(0.2) 
+        # Tiny pause for stability
+        time.sleep(0.05) 
 
-    print("\n>> Fetching Complete! Sorting data...")
-
-    # 3. SORT (Highest Market Cap First)
-    # The 'or 0.0' acts as a double safety net
+    print("\n>> Sorting data...")
     stocks.sort(key=lambda x: (x['mcap'] or 0.0), reverse=True)
 
-    # 4. GENERATE HTML
+    # --- CSS FIX FOR SIDE-BY-SIDE VIEW ---
     html = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Market Cap Dashboard</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Stock Dashboard</title>
         <style>
-            body { font-family: 'Segoe UI', sans-serif; background: #eaedf2; padding: 20px; }
-            .header { 
-                background: linear-gradient(to right, #0052D4, #4364F7, #6FB1FC); 
-                color: white; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 25px;
+            body { 
+                font-family: 'Segoe UI', sans-serif; 
+                background: #f0f2f5; 
+                margin: 0; padding: 10px; 
             }
+            .header {
+                text-align: center; margin-bottom: 20px; color: #333;
+            }
+            /* GRID SYSTEM: This forces side-by-side layout */
             .grid { 
                 display: grid; 
-                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
-                gap: 20px; 
+                /* Fits as many as possible. Min width 280px ensures side-by-side on PC */
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+                gap: 15px; 
+                width: 100%;
             }
             .card { 
-                background: white; border-radius: 12px; overflow: hidden; 
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
-                display: flex; flex-direction: column; min-height: 280px;
+                background: white; 
+                border-radius: 8px; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+                overflow: hidden;
+                display: flex; 
+                flex-direction: column; 
+                height: 320px; /* Fixed height aligns them perfectly */
             }
             .card-header {
-                background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #eee;
+                background: #f8f9fa; 
+                padding: 8px 12px; 
+                border-bottom: 1px solid #eee;
+                font-size: 14px;
                 display: flex; justify-content: space-between; align-items: center;
             }
-            .rank { 
-                background: #333; color: white; padding: 4px 8px; 
-                border-radius: 4px; font-size: 0.85em; font-weight: bold; 
-            }
-            .rank.top50 { background: #28a745; } 
-            .symbol { font-weight: 800; color: #2c3e50; font-size: 1.1em; }
-            .val { font-size: 0.8em; color: #666; }
-            .widget-area { flex-grow: 1; padding: 10px; display:flex; justify-content:center; }
+            .symbol { font-weight: bold; color: #0056b3; font-size: 16px; }
+            .mcap { color: #666; font-size: 12px; }
+            .rank { background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+            /* This ensures the widget fills the box */
+            .widget-box { flex-grow: 1; position: relative; }
+            iframe { width: 100% !important; height: 100% !important; border: none; }
         </style>
     </head>
     <body>
-        <div class="header">
-            <h1>Market Dashboard</h1>
-            <p>Sorted by Real-Time Market Cap</p>
-        </div>
+        <div class="header"><h3>Nifty 500 Dashboard (Ranked)</h3></div>
         <div class="grid">
     """
 
     for rank, item in enumerate(stocks, 1):
-        rank_class = "top50" if rank <= 50 else ""
+        mcap_display = f"₹{int(item['mcap']/10000000):,} Cr" if item['mcap'] > 0 else "N/A"
         
-        # Format Market Cap for display (Trillions/Billions)
-        mcap_display = "Data N/A"
-        if item['mcap'] > 0:
-            val_cr = item['mcap'] / 10000000
-            mcap_display = f"₹{int(val_cr):,} Cr"
-
         html += f'''
         <div class="card">
             <div class="card-header">
                 <div>
                     <span class="symbol">{item['symbol']}</span>
-                    <br><span class="val">{mcap_display}</span>
+                    <span class="mcap">({mcap_display})</span>
                 </div>
-                <span class="rank {rank_class}">#{rank}</span>
-            </div>
-            <div class="widget-area">
-                {item['code']}
-            </div>
-        </div>
-        '''
-
-    html += """
-        </div>
-        <script async src="https://cdn-static.trendlyne.com/static/js/webwidgets/tl-widgets.js" charset="utf-8"></script>
-    </body>
-    </html>
-    """
-
-    with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
-        f.write(html)
-
-    print("\n------------------------------------------------")
-    print("   SUCCESS! OPEN FILE BELOW:                    ")
-    print(f"   {OUTPUT_HTML}")
-    print("------------------------------------------------")
-    
-    input("Press Enter to exit...")
-
-if __name__ == "__main__":
-
-    main()
+                <span
