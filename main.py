@@ -5,7 +5,6 @@ import urllib.parse
 import time
 
 # --- CONFIGURATION ---
-# Note: Ensure this matches your file name exactly (Case Sensitive on GitHub!)
 INPUT_FILE = "widgets.txt" 
 OUTPUT_HTML = "index.html"
 
@@ -26,10 +25,10 @@ def get_market_cap(symbol):
 
 def main():
     print("------------------------------------------------")
-    print("   CLOUD DASHBOARD (FIXED STRING ERROR)         ")
+    print("   CLOUD DASHBOARD (4-COLUMN LAYOUT)            ")
     print("------------------------------------------------")
 
-    # Case-insensitive check for filename
+    # Safe file check
     found_file = None
     for f in os.listdir('.'):
         if f.lower() == INPUT_FILE.lower():
@@ -37,7 +36,7 @@ def main():
             break
     
     if not found_file:
-        print(f"ERROR: Could not find '{INPUT_FILE}' (or 'Widgets.txt').")
+        print(f"ERROR: Could not find '{INPUT_FILE}'.")
         return
 
     print(f"Reading {found_file}...")
@@ -45,7 +44,6 @@ def main():
         lines = f.readlines()
 
     stocks = []
-    
     for line in lines:
         if "trendlyne-widgets" in line:
             sym = extract_symbol(line)
@@ -62,7 +60,7 @@ def main():
     print("\n>> Sorting data...")
     stocks.sort(key=lambda x: (x['mcap'] or 0.0), reverse=True)
 
-    # --- HTML GENERATION ---
+    # --- HTML GENERATION (FIXED LAYOUT) ---
     html_start = """
     <!DOCTYPE html>
     <html lang="en">
@@ -71,20 +69,60 @@ def main():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Stock Dashboard</title>
         <style>
-            body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
-            .header { text-align: center; margin-bottom: 20px; color: #333; }
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; width: 100%; }
-            .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; height: 320px; }
-            .card-header { background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
-            .symbol { font-weight: bold; color: #0056b3; font-size: 16px; }
+            body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+            .header { text-align: center; margin-bottom: 25px; color: #333; }
+            
+            /* GRID FIX: minmax(23%, 1fr) ensures MAX 4 items per row (4 x 23% = 92%) */
+            .grid { 
+                display: grid; 
+                grid-template-columns: repeat(auto-fill, minmax(23%, 1fr)); 
+                gap: 20px; 
+                width: 100%;
+            }
+            
+            /* CARD FIX: Increased height to 450px to prevent cutting off bottom content */
+            .card { 
+                background: white; 
+                border-radius: 12px; 
+                box-shadow: 0 4px 8px rgba(0,0,0,0.08); 
+                display: flex; 
+                flex-direction: column; 
+                height: 450px; /* Taller height for full widget */
+                overflow: visible; /* Allow content to show */
+            }
+            
+            .card-header { 
+                background: #f8f9fa; 
+                padding: 10px 15px; 
+                border-bottom: 1px solid #eee; 
+                font-size: 14px; 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                border-radius: 12px 12px 0 0;
+            }
+            .symbol { font-weight: 800; color: #0056b3; font-size: 16px; }
             .mcap { color: #666; font-size: 12px; }
-            .rank { background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-            .widget-box { flex-grow: 1; position: relative; }
-            iframe { width: 100% !important; height: 100% !important; border: none; }
+            .rank { background: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+            
+            /* WIDGET FIX: Ensure it takes full available space */
+            .widget-box { 
+                flex-grow: 1; 
+                position: relative; 
+                width: 100%; 
+                height: 100%;
+                padding: 5px;
+            }
+            
+            /* MEDIA QUERY: On phones, force 1 column */
+            @media (max-width: 768px) {
+                .grid { grid-template-columns: 1fr; }
+                .card { height: 480px; } /* Even taller on phone just in case */
+            }
         </style>
     </head>
     <body>
-        <div class="header"><h3>Nifty 500 Dashboard (Ranked)</h3></div>
+        <div class="header"><h2>Nifty 500 Dashboard (Ranked)</h2></div>
         <div class="grid">
     """
     
@@ -92,11 +130,11 @@ def main():
     for rank, item in enumerate(stocks, 1):
         mcap_display = f"₹{int(item['mcap']/10000000):,} Cr" if item['mcap'] > 0 else "N/A"
         
-        # Using simple f-string concatenation to avoid triple-quote errors
-        html_cards += f'<div class="card">'
+        # Using string concatenation to prevent syntax errors
+        html_cards += '<div class="card">'
         html_cards += f'<div class="card-header"><div><span class="symbol">{item["symbol"]}</span> <span class="mcap">({mcap_display})</span></div><span class="rank">#{rank}</span></div>'
         html_cards += f'<div class="widget-box">{item["code"]}</div>'
-        html_cards += f'</div>'
+        html_cards += '</div>'
 
     html_end = """
         </div>
@@ -108,7 +146,7 @@ def main():
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
         f.write(html_start + html_cards + html_end)
 
-    print("\nSUCCESS! index.html generated.")
+    print("\nSUCCESS! index.html generated with 4-column layout.")
 
 if __name__ == "__main__":
     main()
