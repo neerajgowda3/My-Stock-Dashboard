@@ -31,6 +31,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
+          git pull --rebase  # <--- THIS IS THE MAGIC FIX (Gets latest changes first)
           git add .
           git commit -m "Auto-update Dashboard" || echo "No changes to commit"
           git push
