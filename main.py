@@ -27,21 +27,19 @@ def get_market_cap(symbol):
 
 def main():
     print("------------------------------------------------")
-    print("   CLOUD DASHBOARD (DATE ONLY + GIT FIX)        ")
+    print("   CLOUD DASHBOARD (FINAL COSMETIC FIX)         ")
     print("------------------------------------------------")
 
     # 1. SETUP DATE STRINGS
     ist = pytz.timezone('Asia/Kolkata')
     now = datetime.now(ist)
     
-    # Filename: "Dashboard_05_Jan.html"
     date_filename = now.strftime("Dashboard_%d_%b.html")
-    # Display: "05 Jan 2026"
     date_display = now.strftime("%d %b %Y")
 
     print(f"Report Date: {date_display}")
 
-    # 2. READ FILE (Case Insensitive Check)
+    # 2. READ FILE
     found_file = None
     for f in os.listdir('.'):
         if f.lower() == INPUT_FILE.lower():
@@ -73,7 +71,7 @@ def main():
     print("\n>> Sorting data...")
     stocks.sort(key=lambda x: (x['mcap'] or 0.0), reverse=True)
 
-    # 4. GENERATE HTML
+    # 4. GENERATE HTML (CSS UPDATED)
     html_start = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -82,7 +80,7 @@ def main():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Stock Dashboard</title>
         <style>
-            body {{ font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }}
+            body {{ font-family: 'Segoe UI', sans-serif; background: #eaedf2; margin: 0; padding: 20px; }}
             .header {{ text-align: center; margin-bottom: 25px; color: #333; }}
             .sub-date {{ font-size: 14px; color: #666; margin-top: -15px; margin-bottom: 20px; display: block; }}
             
@@ -99,13 +97,14 @@ def main():
                 box-shadow: 0 4px 8px rgba(0,0,0,0.08); 
                 display: flex; 
                 flex-direction: column; 
-                height: 450px; 
-                overflow: visible; 
+                /* HEIGHT REDUCED FROM 450px to 400px TO REMOVE WHITE SPACE */
+                height: 400px; 
+                overflow: hidden; 
             }}
             
             .card-header {{ 
                 background: #f8f9fa; 
-                padding: 10px 15px; 
+                padding: 8px 15px; 
                 border-bottom: 1px solid #eee; 
                 font-size: 14px; 
                 display: flex; 
@@ -116,11 +115,13 @@ def main():
             .symbol {{ font-weight: 800; color: #0056b3; font-size: 16px; }}
             .mcap {{ color: #666; font-size: 12px; }}
             .rank {{ background: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }}
-            .widget-box {{ flex-grow: 1; position: relative; width: 100%; height: 100%; padding: 5px; }}
+            
+            /* Reduced padding to tighten layout */
+            .widget-box {{ flex-grow: 1; position: relative; width: 100%; height: 100%; padding: 0px; }}
             
             @media (max-width: 768px) {{
                 .grid {{ grid-template-columns: 1fr; }}
-                .card {{ height: 480px; }}
+                .card {{ height: 450px; }} /* Keep taller on mobile just in case */
             }}
         </style>
     </head>
@@ -136,7 +137,6 @@ def main():
     for rank, item in enumerate(stocks, 1):
         mcap_display = f"₹{int(item['mcap']/10000000):,} Cr" if item['mcap'] > 0 else "N/A"
         
-        # Simple string addition (Safe)
         html_cards += '<div class="card">'
         html_cards += f'<div class="card-header"><div><span class="symbol">{item["symbol"]}</span> <span class="mcap">({mcap_display})</span></div><span class="rank">#{rank}</span></div>'
         html_cards += f'<div class="widget-box">{item["code"]}</div>'
@@ -151,14 +151,13 @@ def main():
     
     full_html = html_start + html_cards + html_end
 
-    # Save both files
     with open(OUTPUT_INDEX, "w", encoding="utf-8") as f:
         f.write(full_html)
     
     with open(date_filename, "w", encoding="utf-8") as f:
         f.write(full_html)
 
-    print(f"\nSUCCESS! Generated {OUTPUT_INDEX} and {date_filename}")
+    print(f"\nSUCCESS! Generated with tight layout.")
 
 if __name__ == "__main__":
     main()
