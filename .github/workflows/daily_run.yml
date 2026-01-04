@@ -2,7 +2,7 @@ name: Update Stock Dashboard
 
 on:
   schedule:
-    - cron: '30 3 * * *'  # Runs at 03:30 UTC (9:00 AM India time)
+    - cron: '30 3 1 * *'  # Runs at 03:30 UTC (9:00 AM India time)
   workflow_dispatch:      # Allows you to click a button to run it manually
 
 permissions:
