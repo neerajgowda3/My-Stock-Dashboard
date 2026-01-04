@@ -1,0 +1,25 @@
+name: Market News Alerts
+
+on:
+  schedule:
+    # Runs every 30 mins from 3:30 UTC to 10:00 UTC (9 AM - 3:30 PM IST)
+    - cron: '*/30 3-10 * * *'
+  workflow_dispatch: # Button to run manually
+
+jobs:
+  check_news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' # Use modern Python
+      
+      - name: Install
+        run: pip install yfinance pandas feedparser requests
+
+      - name: Run Script
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python news_bot.py
