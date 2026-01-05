@@ -24,7 +24,8 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        pip install pandas lxml html5lib beautifulsoup4 requests
+        python -m pip install --upgrade pip
+        pip install pandas lxml html5lib beautifulsoup4 requests yfinance
 
     - name: Run Fetch Script
       run: python Stocks_From_Trendlyne.py
@@ -40,7 +41,3 @@ jobs:
         # The '|| exit 0' prevents the workflow from failing if there are no changes to commit
         git commit -m "Auto-update stock report" || exit 0
         git push
-
-    - name: Install Dependencies
-      run: |
-        pip install pandas lxml html5lib beautifulsoup4 requests yfinance
