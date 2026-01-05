@@ -16,7 +16,13 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    # --- THIS WAS MISSING AND CAUSED THE ERROR ---
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # ---------------------------------------------
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -26,7 +32,6 @@ jobs:
       with:
         python-version: '3.11'
 
-    # --- NEW: INSTALL CHROME & SELENIUM ---
     - name: Install Chrome
       uses: browser-actions/setup-chrome@latest
 
@@ -35,15 +40,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas yfinance requests selenium webdriver-manager beautifulsoup4
 
-    # 1. FETCH (Generates the messy unsorted HTML)
     - name: Run Fetch Script
       run: python Stocks_From_Trendlyne.py
 
-    # 2. SORT (Opens Browser, Inspects Elements, Re-saves)
     - name: Run Selenium Sort
       run: python Sort_With_Selenium.py
 
-    # 3. DEPLOY
     - name: Commit and Push changes
       run: |
         git config --global user.name "GitHub Action"
@@ -54,9 +56,12 @@ jobs:
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
+
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: '.'
+
     - name: Deploy to GitHub Pages
+      id: deployment
       uses: actions/deploy-pages@v4
