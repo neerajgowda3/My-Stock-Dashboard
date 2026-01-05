@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -12,99 +13,119 @@ INPUT_FILE = "index.html"
 OUTPUT_FILE = "index.html"
 
 def main():
-    print("--- STARTING SMART SELENIUM SORT ---")
+    print("--- STARTING ROBUST SELENIUM SORT ---")
     
-    # 1. SETUP CHROME
+    # 1. SETUP CHROME with Desktop Resolution
     chrome_options = Options()
     chrome_options.add_argument("--headless") 
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    # Force a large window so widgets render fully
+    chrome_options.add_argument("--window-size=1920,1080")
     
     file_path = "file://" + os.path.abspath(INPUT_FILE)
 
-    print("Launching Browser to fetch scores...")
+    print(f"Loading {INPUT_FILE} in Headless Chrome...")
     driver = webdriver.Chrome(options=chrome_options)
     
-    # Dictionary to store scores: {'RELIANCE': 79.0, 'TCS': 65.0}
+    # Dictionary to store calculated sort scores
+    # Key: Symbol, Value: (Quality + Technicals)
     stock_scores = {}
 
     try:
-        # 2. OPEN PAGE & SCRAPE SCORES
         driver.get(file_path)
         
-        # Wait for widgets to load (look for the percentage number)
+        # 2. WAIT FOR DATA
+        print("Waiting 20s for Trendlyne widgets to paint numbers...")
         try:
-            WebDriverWait(driver, 25).until(
+            # Wait until at least one percentage number appears
+            WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "percent_number"))
             )
-            time.sleep(5) # Extra buffer for all widgets to settle
+            # Add extra buffer for the rest to load
+            time.sleep(10)
         except:
-            print("Warning: Timeout waiting for widgets. Proceeding with whatever loaded.")
+            print("WARNING: Timeout waiting for specific elements. Proceeding anyway.")
 
-        # Find all cards in the browser view
+        # 3. SCRAPE
         rendered_cards = driver.find_elements(By.CSS_SELECTOR, ".card")
-        
-        print(f"Scraping scores from {len(rendered_cards)} loaded widgets...")
+        print(f"Found {len(rendered_cards)} widgets. Extracting scores...")
         
         for card in rendered_cards:
             try:
-                # Extract Symbol
+                # A. Get Symbol (from the header we created)
                 symbol_elem = card.find_element(By.CSS_SELECTOR, ".symbol")
                 symbol_text = symbol_elem.text.strip()
                 
-                # Extract Score (The first 'percent_number' is usually Quality)
+                # B. Get Scores (Quality, Valuation, Technicals)
+                # The widget usually renders 3 spans with class 'percent_number'
                 score_elems = card.find_elements(By.CSS_SELECTOR, ".percent_number")
-                if score_elems:
-                    raw_score = score_elems[0].text.strip().replace("/100", "")
-                    score_val = float(raw_score)
-                else:
-                    score_val = 0.0
                 
-                stock_scores[symbol_text] = score_val
+                q_score = 0.0
+                t_score = 0.0
                 
-            except Exception:
-                continue # Skip if a specific card fails
+                if len(score_elems) >= 3:
+                    # Index 0 = Quality
+                    # Index 1 = Valuation
+                    # Index 2 = Technicals
+                    q_text = score_elems[0].text.strip().replace("/100", "")
+                    t_text = score_elems[2].text.strip().replace("/100", "")
+                    
+                    q_score = float(q_text) if q_text else 0.0
+                    t_score = float(t_text) if t_text else 0.0
+                elif len(score_elems) >= 1:
+                     # Fallback: If only 1 number loads, treat it as Quality
+                    q_text = score_elems[0].text.strip().replace("/100", "")
+                    q_score = float(q_text) if q_text else 0.0
 
-        print(f"Captured scores for {len(stock_scores)} stocks.")
+                # C. Calculate Total Score (Quality + Technicals)
+                total_score = q_score + t_score
+                stock_scores[symbol_text] = total_score
+                
+                # DEBUG: Print the first 3 to verify we are getting data
+                if len(stock_scores) <= 3:
+                    print(f"DEBUG: {symbol_text} -> Q:{q_score} + T:{t_score} = {total_score}")
+
+            except Exception:
+                continue 
+
+        print(f"Successfully captured scores for {len(stock_scores)} stocks.")
+        
+        if len(stock_scores) == 0:
+            print("CRITICAL: No scores were captured. Sorting will fail.")
 
     except Exception as e:
         print(f"Browser Error: {e}")
     finally:
         driver.quit()
 
-    # 3. REARRANGE THE ORIGINAL FILE
-    # Now we open the raw HTML file again (NOT the one from the browser)
-    print("Re-ordering the original HTML file...")
+    # 4. RE-ORDER HTML
+    print("Re-arranging the dashboard...")
     
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
     
-    # Find the container
     grid_div = soup.find("div", class_="grid")
-    
     if not grid_div:
-        print("Error: Could not find .grid div in HTML.")
+        print("Error: No grid found.")
         return
 
-    # Find all card divs in the source HTML
-    # Note: These are the "Raw" cards containing the widget scripts
+    # Get raw cards
     original_cards = grid_div.find_all("div", class_="card", recursive=False)
     
-    # Helper function to get score for a raw card
+    # Sort Function
     def get_sort_key(card_tag):
-        # Find the symbol span inside this raw card
         sym_span = card_tag.find("span", class_="symbol")
         if sym_span:
             sym = sym_span.get_text().strip()
-            # Return the score we scraped earlier (default to -1 if missing)
+            # Default to -1 so stocks with no data drop to the bottom
             return stock_scores.get(sym, -1.0)
         return -1.0
 
-    # SORT: High score first
+    # Sort descending (Highest Score First)
     original_cards.sort(key=get_sort_key, reverse=True)
     
-    # 4. SAVE
-    # Clear the current grid and re-attach sorted cards
+    # Apply changes
     grid_div.clear()
     for card in original_cards:
         grid_div.append(card)
@@ -112,7 +133,7 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(str(soup))
         
-    print(f"SUCCESS: Re-ordered {len(original_cards)} stocks based on fetched scores.")
+    print("SUCCESS: Dashboard sorted by (Quality + Technicals).")
 
 if __name__ == "__main__":
     main()
