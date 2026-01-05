@@ -4,13 +4,24 @@ on:
   schedule:
     # Runs at 11:30 UTC daily (which is 5:00 PM IST)
     - cron: '30 11 * * *'
-  workflow_dispatch: # Allows you to run it manually from the Actions tab for testing
+  workflow_dispatch: # Allows manual run
 
+# Grant permissions for both committing code AND deploying the site
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +31,6 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        # UPDATED: Changed from 3.9 to 3.11 to fix the yfinance error
         python-version: '3.11'
 
     - name: Install Dependencies
@@ -39,6 +49,20 @@ jobs:
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add index.html
-        # The '|| exit 0' prevents the workflow from failing if there are no changes to commit
+        # The '|| exit 0' prevents failure if no changes
         git commit -m "Auto-update stock report" || exit 0
         git push
+
+    # --- NEW DEPLOYMENT STEPS (No separate workflow needed) ---
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        # Upload the entire repository folder
+        path: '.'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
