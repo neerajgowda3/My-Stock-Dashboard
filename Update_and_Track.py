@@ -38,7 +38,7 @@ def save_history(data):
 
 def get_score_color(score):
     if score >= 50: return "#009933" # Green
-    elif score >= 35: return "#ff9900" # Orange
+    elif score >= 30: return "#ff9900" # Orange
     else: return "#cc3300" # Red
 
 def get_diff_html(current, history_list):
@@ -79,9 +79,9 @@ def get_tier_rank(q, v, t):
     if g_v and (g_q or g_t):
         return 3
         
-    # 4. "Yellows" (Average >= 35)
+    # 4. "Yellows" (Average >= 30)
     avg = (q + v + t) / 3
-    if avg >= 35:
+    if avg >= 30:
         return 4
         
     # 5. "Reds" (Everything else)
