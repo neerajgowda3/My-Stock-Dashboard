@@ -20,7 +20,8 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        # UPDATED: Changed from 3.9 to 3.11 to fix the yfinance error
+        python-version: '3.11'
 
     - name: Install Dependencies
       run: |
