@@ -52,7 +52,7 @@ jobs:
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git pull  # Ensure we have latest changes before committing
-        git add index.html history.json
+        git add index.html history.json archive/
         git commit -m "Auto-update: Dashboard & History" || exit 0
         git push
 
