@@ -16,11 +16,9 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    # --- THIS WAS MISSING AND CAUSED THE ERROR ---
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    # ---------------------------------------------
     runs-on: ubuntu-latest
 
     steps:
@@ -40,28 +38,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas yfinance requests selenium webdriver-manager beautifulsoup4
 
+    # 1. GENERATE SKELETON (Using your Stock List)
     - name: Run Fetch Script
       run: python Stocks_From_Trendlyne.py
 
-    - name: Run Selenium Sort
-      run: python Sort_With_Selenium.py
+    # 2. SCRAPE, COMPARE & SORT
+    - name: Run Tracker
+      run: python Update_and_Track.py
 
+    # 3. SAVE HTML AND HISTORY.JSON
     - name: Commit and Push changes
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        git add index.html
-        git commit -m "Auto-update stock report" || exit 0
+        git pull  # Ensure we have latest changes before committing
+        git add index.html history.json
+        git commit -m "Auto-update: Dashboard & History" || exit 0
         git push
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
-
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: '.'
-
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
