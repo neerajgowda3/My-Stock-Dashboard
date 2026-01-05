@@ -1,4 +1,5 @@
 import time
+import os
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -10,105 +11,108 @@ from selenium.webdriver.support import expected_conditions as EC
 INPUT_FILE = "index.html"
 OUTPUT_FILE = "index.html"
 
-def get_score_from_card(card_element):
-    """
-    Finds the Quality Score inside a single rendered card.
-    Based on your screenshot, the score is in <span class="percent_number">79</span>.
-    Usually the first one is Quality.
-    """
-    try:
-        # We look for all scores (Quality, Valuation, Technicals)
-        # Your screenshot shows they are all 'span.percent_number'
-        scores = card_element.find_elements(By.CSS_SELECTOR, ".percent_number")
-        
-        if len(scores) > 0:
-            # The first number is usually Quality. 
-            # We strip whitespace and "/100" if present.
-            raw_text = scores[0].text.strip().replace("/100", "")
-            return float(raw_text) if raw_text else 0
-        return 0
-    except:
-        return 0
-
 def main():
-    print("--- STARTING SELENIUM SORTER ---")
+    print("--- STARTING SMART SELENIUM SORT ---")
     
-    # 1. SETUP CHROME (HEADLESS)
+    # 1. SETUP CHROME
     chrome_options = Options()
-    chrome_options.add_argument("--headless") # Run in background
+    chrome_options.add_argument("--headless") 
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # Important: Load local file path properly
-    import os
+    
     file_path = "file://" + os.path.abspath(INPUT_FILE)
 
-    print("Launching Browser...")
+    print("Launching Browser to fetch scores...")
     driver = webdriver.Chrome(options=chrome_options)
     
-    try:
-        # 2. OPEN THE FILE
-        print(f"Loading {file_path}...")
-        driver.get(file_path)
+    # Dictionary to store scores: {'RELIANCE': 79.0, 'TCS': 65.0}
+    stock_scores = {}
 
-        # 3. WAIT FOR WIDGETS (CRITICAL STEP)
-        print("Waiting for widgets to render (this may take time)...")
-        # Wait up to 20 seconds for at least one '.percent_number' to appear
+    try:
+        # 2. OPEN PAGE & SCRAPE SCORES
+        driver.get(file_path)
+        
+        # Wait for widgets to load (look for the percentage number)
         try:
-            WebDriverWait(driver, 20).until(
+            WebDriverWait(driver, 25).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "percent_number"))
             )
-            # Give it a few extra seconds for ALL 500 to finish
-            time.sleep(10) 
+            time.sleep(5) # Extra buffer for all widgets to settle
         except:
-            print("WARNING: Timeout waiting for widgets. They might be slow or blocked.")
+            print("Warning: Timeout waiting for widgets. Proceeding with whatever loaded.")
 
-        # 4. SCRAPE & SORT
-        print("Scraping scores from the live page...")
+        # Find all cards in the browser view
+        rendered_cards = driver.find_elements(By.CSS_SELECTOR, ".card")
         
-        # Find all our custom .card containers
-        cards = driver.find_elements(By.CSS_SELECTOR, ".card")
+        print(f"Scraping scores from {len(rendered_cards)} loaded widgets...")
         
-        card_data = []
-        for card in cards:
-            score = get_score_from_card(card)
-            # We grab the 'outerHTML' which is the fully rendered HTML of that card
-            html_content = card.get_attribute('outerHTML')
-            card_data.append({'html': html_content, 'score': score})
+        for card in rendered_cards:
+            try:
+                # Extract Symbol
+                symbol_elem = card.find_element(By.CSS_SELECTOR, ".symbol")
+                symbol_text = symbol_elem.text.strip()
+                
+                # Extract Score (The first 'percent_number' is usually Quality)
+                score_elems = card.find_elements(By.CSS_SELECTOR, ".percent_number")
+                if score_elems:
+                    raw_score = score_elems[0].text.strip().replace("/100", "")
+                    score_val = float(raw_score)
+                else:
+                    score_val = 0.0
+                
+                stock_scores[symbol_text] = score_val
+                
+            except Exception:
+                continue # Skip if a specific card fails
 
-        print(f"Scraped {len(card_data)} cards. Sorting...")
-        
-        # Sort by Score (Descending)
-        card_data.sort(key=lambda x: x['score'], reverse=True)
-
-        # 5. REBUILD HTML
-        # We need the original header/footer, so we read the raw file again
-        with open(INPUT_FILE, "r", encoding="utf-8") as f:
-            soup = BeautifulSoup(f, "html.parser")
-        
-        # clear the current grid
-        grid_div = soup.find("div", class_="grid")
-        if grid_div:
-            grid_div.clear()
-            # Inject our new sorted HTML
-            # Note: We are injecting the *rendered* HTML from Selenium, 
-            # which might include the expanded widget code.
-            # This makes the file static (snapshots the data) which is actually good.
-            for item in card_data:
-                # Parse the selenium HTML string back into a soup object
-                card_soup = BeautifulSoup(item['html'], "html.parser")
-                grid_div.append(card_soup)
-        
-        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            f.write(str(soup))
-            
-        print("SUCCESS: HTML sorted and saved.")
+        print(f"Captured scores for {len(stock_scores)} stocks.")
 
     except Exception as e:
-        print(f"CRITICAL ERROR: {e}")
-        exit(1)
-        
+        print(f"Browser Error: {e}")
     finally:
         driver.quit()
+
+    # 3. REARRANGE THE ORIGINAL FILE
+    # Now we open the raw HTML file again (NOT the one from the browser)
+    print("Re-ordering the original HTML file...")
+    
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+    
+    # Find the container
+    grid_div = soup.find("div", class_="grid")
+    
+    if not grid_div:
+        print("Error: Could not find .grid div in HTML.")
+        return
+
+    # Find all card divs in the source HTML
+    # Note: These are the "Raw" cards containing the widget scripts
+    original_cards = grid_div.find_all("div", class_="card", recursive=False)
+    
+    # Helper function to get score for a raw card
+    def get_sort_key(card_tag):
+        # Find the symbol span inside this raw card
+        sym_span = card_tag.find("span", class_="symbol")
+        if sym_span:
+            sym = sym_span.get_text().strip()
+            # Return the score we scraped earlier (default to -1 if missing)
+            return stock_scores.get(sym, -1.0)
+        return -1.0
+
+    # SORT: High score first
+    original_cards.sort(key=get_sort_key, reverse=True)
+    
+    # 4. SAVE
+    # Clear the current grid and re-attach sorted cards
+    grid_div.clear()
+    for card in original_cards:
+        grid_div.append(card)
+        
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write(str(soup))
+        
+    print(f"SUCCESS: Re-ordered {len(original_cards)} stocks based on fetched scores.")
 
 if __name__ == "__main__":
     main()
