@@ -2,28 +2,21 @@ name: Daily Stock Dashboard Update
 
 on:
   schedule:
-    # Runs at 11:30 UTC daily (which is 5:00 PM IST)
     - cron: '30 11 * * *'
-  workflow_dispatch: # Allows manual run
+  workflow_dispatch:
 
-# Grant permissions for both committing code AND deploying the site
 permissions:
   contents: write
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -33,36 +26,37 @@ jobs:
       with:
         python-version: '3.11'
 
+    # --- NEW: INSTALL CHROME & SELENIUM ---
+    - name: Install Chrome
+      uses: browser-actions/setup-chrome@latest
+
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas lxml html5lib beautifulsoup4 requests yfinance
+        pip install pandas yfinance requests selenium webdriver-manager beautifulsoup4
 
+    # 1. FETCH (Generates the messy unsorted HTML)
     - name: Run Fetch Script
       run: python Stocks_From_Trendlyne.py
 
-    - name: Run Sort & Segregate Script
-      run: python Segregate_Report.py
+    # 2. SORT (Opens Browser, Inspects Elements, Re-saves)
+    - name: Run Selenium Sort
+      run: python Sort_With_Selenium.py
 
+    # 3. DEPLOY
     - name: Commit and Push changes
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add index.html
-        # The '|| exit 0' prevents failure if no changes
         git commit -m "Auto-update stock report" || exit 0
         git push
 
-    # --- NEW DEPLOYMENT STEPS (No separate workflow needed) ---
     - name: Setup Pages
       uses: actions/configure-pages@v5
-
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        # Upload the entire repository folder
         path: '.'
-
     - name: Deploy to GitHub Pages
-      id: deployment
       uses: actions/deploy-pages@v4
