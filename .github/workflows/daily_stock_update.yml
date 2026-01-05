@@ -1,0 +1,42 @@
+name: Daily Stock Dashboard Update
+
+on:
+  schedule:
+    # Runs at 11:30 UTC daily (which is 5:00 PM IST)
+    - cron: '30 11 * * *'
+  workflow_dispatch: # Allows you to run it manually from the Actions tab for testing
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Install Dependencies
+      run: |
+        pip install pandas lxml html5lib beautifulsoup4 requests
+
+    - name: Run Fetch Script
+      run: python Stocks_From_Trendlyne.py
+
+    - name: Run Sort & Segregate Script
+      run: python Segregate_Report.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add index.html
+        # The '|| exit 0' prevents the workflow from failing if there are no changes to commit
+        git commit -m "Auto-update stock report" || exit 0
+        git push
