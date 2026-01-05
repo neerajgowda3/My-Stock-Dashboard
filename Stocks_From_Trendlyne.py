@@ -7,7 +7,7 @@ from datetime import datetime
 import pytz 
 
 # --- CONFIGURATION ---
-INPUT_FILE = "widgets.txt" 
+INPUT_FILE = "Nifty500.txt" 
 OUTPUT_INDEX = "index.html"
 
 def extract_symbol(html_line):
@@ -161,3 +161,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
